@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -8,14 +7,16 @@
 #include <algorithm>
 #include <iomanip>
 
+using namespace std;
+
 class Automaton {
 private:
-    std::set<char> alphabet;
+    set<char> alphabet;
     int numStates;
-    std::vector<std::string> states;
-    std::string startState;
-    std::set<std::string> acceptingStates;
-    std::map<std::string, std::map<char, std::set<std::string>>> transitions;
+    vector<string> states;
+    string startState;
+    set<string> acceptingStates;
+    map<string, map<char, set<string>>> transitions;
     bool isDFA;
 
 public:
@@ -23,125 +24,122 @@ public:
 
     // Input alphabet from user
     void inputAlphabet() {
-        std::cout << "Enter the allowed symbols (language) without spaces: ";
-        std::string symbols;
-        std::cin >> symbols;
+        cout << "Enter the allowed symbols (language) without spaces: ";
+        string symbols;
+        cin >> symbols;
         
         for (char c : symbols) {
             alphabet.insert(c);
         }
         
-        std::cout << "Alphabet: ";
+        cout << "Alphabet: ";
         for (char c : alphabet) {
-            std::cout << c << " ";
+            cout << c << " ";
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 
     // Generate states based on user input
     void generateStates() {
-        std::cout << "Enter the number of states: ";
-        std::cin >> numStates;
+        cout << "Enter the number of states: ";
+        cin >> numStates;
         
         for (int i = 0; i < numStates; ++i) {
-            states.push_back("q" + std::to_string(i));
+            states.push_back("q" + to_string(i));
         }
         
-        std::cout << "Generated states: ";
+        cout << "Generated states: ";
         for (const auto& state : states) {
-            std::cout << state << " ";
+            cout << state << " ";
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 
     // Input accepting states
     void inputAcceptingStates() {
         int numAccepting;
-        std::cout << "Enter the number of accepting states: ";
-        std::cin >> numAccepting;
+        cout << "Enter the number of accepting states: ";
+        cin >> numAccepting;
         
-        std::cout << "Enter the indices of accepting states (0 to " << numStates - 1 << "): ";
+        cout << "Enter the indices of accepting states (0 to " << numStates - 1 << "): ";
         for (int i = 0; i < numAccepting; ++i) {
             int stateIndex;
-            std::cin >> stateIndex;
+            cin >> stateIndex;
             
             if (stateIndex >= 0 && stateIndex < numStates) {
                 acceptingStates.insert(states[stateIndex]);
             } else {
-                std::cerr << "Invalid state index: " << stateIndex << std::endl;
+                cerr << "Invalid state index: " << stateIndex << endl;
                 exit(1);
             }
         }
         
-        std::cout << "Accepting states: ";
+        cout << "Accepting states: ";
         for (const auto& state : acceptingStates) {
-            std::cout << state << " ";
+            cout << state << " ";
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 
-    // Input transitions
+    // Input transitions for each state
     void inputTransitions() {
-        int numTransitions;
-        std::cout << "Enter the number of transitions: ";
-        std::cin >> numTransitions;
+        cout << "Enter transitions for each state:" << endl;
         
-        std::cout << "Enter transitions in the format 'sourceState symbol destinationStateIndex'\n";
-        std::cout << "For example, 'q0 a 1' means from state q0 on symbol 'a', go to state q1.\n";
-        
-        for (int i = 0; i < numTransitions; ++i) {
-            std::string sourceState, destState;
-            char symbol;
-            int destIndex;
+        for (const auto& state : states) {
+            int numTransitionsForState;
+            cout << "Enter number of transitions for state " << state << ": ";
+            cin >> numTransitionsForState;
             
-            std::cin >> sourceState >> symbol >> destIndex;
+            cout << "For state " << state << ", enter transitions in format 'symbol destinationStateIndex'" << endl;
+            cout << "For example, 'a 1' means on symbol 'a', go to state q1." << endl;
             
-            // Validate source state
-            if (std::find(states.begin(), states.end(), sourceState) == states.end()) {
-                std::cerr << "Invalid source state: " << sourceState << std::endl;
-                exit(1);
+            for (int i = 0; i < numTransitionsForState; ++i) {
+                char symbol;
+                int destIndex;
+                
+                cin >> symbol >> destIndex;
+                
+                // Validate symbol
+                if (alphabet.find(symbol) == alphabet.end()) {
+                    cerr << "Invalid symbol: " << symbol << endl;
+                    exit(1);
+                }
+                
+                // Validate destination state index
+                if (destIndex < 0 || destIndex >= numStates) {
+                    cerr << "Invalid destination state index: " << destIndex << endl;
+                    exit(1);
+                }
+                
+                string destState = states[destIndex];
+                
+                // Check if this is an NFA (multiple transitions for same state-symbol pair)
+                if (transitions[state][symbol].size() > 0) {
+                    isDFA = false;
+                }
+                
+                transitions[state][symbol].insert(destState);
             }
-            
-            // Validate symbol
-            if (alphabet.find(symbol) == alphabet.end()) {
-                std::cerr << "Invalid symbol: " << symbol << std::endl;
-                exit(1);
-            }
-            
-            // Validate destination state index
-            if (destIndex < 0 || destIndex >= numStates) {
-                std::cerr << "Invalid destination state index: " << destIndex << std::endl;
-                exit(1);
-            }
-            
-            destState = states[destIndex];
-            
-            // Check if this is an NFA (multiple transitions for same state-symbol pair)
-            if (transitions[sourceState][symbol].size() > 0) {
-                isDFA = false;
-            }
-            
-            transitions[sourceState][symbol].insert(destState);
         }
     }
 
     // Display transition table
     void displayTransitionTable() {
-        std::cout << "\nTransition Table:\n";
+        cout << "\nTransition Table:\n";
         
         // Print header
-        std::cout << std::setw(10) << "State";
+        cout << setw(10) << "State";
         for (char symbol : alphabet) {
-            std::cout << std::setw(15) << symbol;
+            cout << setw(15) << symbol;
         }
-        std::cout << std::endl;
+        cout << endl;
         
         // Print rows
         for (const auto& state : states) {
-            std::cout << std::setw(10) << state;
+            cout << setw(10) << state;
             
             for (char symbol : alphabet) {
-                std::string destinations = "";
+                string destinations = "";
                 
                 if (transitions[state][symbol].size() > 0) {
                     if (transitions[state][symbol].size() > 1) {
@@ -164,10 +162,10 @@ public:
                     destinations = "-";
                 }
                 
-                std::cout << std::setw(15) << destinations;
+                cout << setw(15) << destinations;
             }
             
-            std::cout << std::endl;
+            cout << endl;
         }
     }
 
@@ -193,7 +191,7 @@ public:
         
         // Add sink state if needed
         if (needSinkState) {
-            std::string sinkState = "qd";
+            string sinkState = "qd";
             states.push_back(sinkState);
             
             // Add self-loops for the sink state
@@ -210,7 +208,7 @@ public:
                 }
             }
             
-            std::cout << "Added sink state 'qd' for undefined transitions." << std::endl;
+            cout << "Added sink state 'qd' for undefined transitions." << endl;
         }
     }
 
@@ -220,8 +218,8 @@ public:
         dfa.alphabet = this->alphabet;
         
         // Start with epsilon closure of the start state
-        std::set<std::string> startSet = {this->startState};
-        std::string dfaStartState = setToStateName(startSet);
+        set<string> startSet = {this->startState};
+        string dfaStartState = setToStateName(startSet);
         
         dfa.states.push_back(dfaStartState);
         dfa.startState = dfaStartState;
@@ -235,21 +233,21 @@ public:
         }
         
         // BFS to find all DFA states
-        std::queue<std::set<std::string>> stateSetsQueue;
-        std::map<std::string, bool> visitedStateSets;
+        queue<set<string>> stateSetsQueue;
+        map<string, bool> visitedStateSets;
         
         stateSetsQueue.push(startSet);
         visitedStateSets[dfaStartState] = true;
         
         while (!stateSetsQueue.empty()) {
-            std::set<std::string> currentStateSet = stateSetsQueue.front();
+            set<string> currentStateSet = stateSetsQueue.front();
             stateSetsQueue.pop();
             
-            std::string currentDFAState = setToStateName(currentStateSet);
+            string currentDFAState = setToStateName(currentStateSet);
             
             // Process each symbol in the alphabet
             for (char symbol : this->alphabet) {
-                std::set<std::string> nextStateSet;
+                set<string> nextStateSet;
                 
                 // Compute next state set
                 for (const auto& state : currentStateSet) {
@@ -261,7 +259,7 @@ public:
                 // Skip empty transitions
                 if (nextStateSet.empty()) continue;
                 
-                std::string nextDFAState = setToStateName(nextStateSet);
+                string nextDFAState = setToStateName(nextStateSet);
                 
                 // If this is a new DFA state, add it to the queue
                 if (visitedStateSets.find(nextDFAState) == visitedStateSets.end()) {
@@ -294,7 +292,7 @@ public:
         // Ensure DFA is complete before minimization
         completeDFA();
         
-        std::cout << "\nMinimizing DFA using Hopcroft's algorithm...\n";
+        cout << "\nMinimizing DFA using Hopcroft's algorithm...\n";
         
         // Placeholder for the actual implementation of Hopcroft's algorithm
         // This will be expanded in the future with the full implementation
@@ -305,10 +303,10 @@ public:
 
 private:
     // Convert a set of states to a state name
-    std::string setToStateName(const std::set<std::string>& stateSet) {
+    string setToStateName(const set<string>& stateSet) {
         if (stateSet.empty()) return "{}";
         
-        std::string name = "{";
+        string name = "{";
         bool first = true;
         
         for (const auto& state : stateSet) {
@@ -327,8 +325,8 @@ private:
 int main() {
     Automaton automaton;
     
-    std::cout << "Automaton Minimizer\n";
-    std::cout << "===================\n";
+    cout << "Automaton Minimizer\n";
+    cout << "===================\n";
     
     // Input process
     automaton.inputAlphabet();
@@ -337,29 +335,29 @@ int main() {
     automaton.inputTransitions();
     
     // Display original transition table
-    std::cout << "\nOriginal Automaton:";
+    cout << "\nOriginal Automaton:";
     automaton.displayTransitionTable();
     
     // Check if input is a DFA or NFA
     if (!automaton.checkIfDFA()) {
-        std::cout << "\nInput is an NFA. Converting to DFA...\n";
+        cout << "\nInput is an NFA. Converting to DFA...\n";
         Automaton dfa = automaton.convertToDFA();
         
-        std::cout << "\nEquivalent DFA:";
+        cout << "\nEquivalent DFA:";
         dfa.displayTransitionTable();
         
         // Minimize the DFA
         Automaton minimizedDFA = dfa.minimizeDFA();
         
-        std::cout << "\nMinimized DFA:";
+        cout << "\nMinimized DFA:";
         minimizedDFA.displayTransitionTable();
     } else {
-        std::cout << "\nInput is a DFA. Proceeding with minimization...\n";
+        cout << "\nInput is a DFA. Proceeding with minimization...\n";
         
         // Minimize the DFA
         Automaton minimizedDFA = automaton.minimizeDFA();
         
-        std::cout << "\nMinimized DFA:";
+        cout << "\nMinimized DFA:";
         minimizedDFA.displayTransitionTable();
     }
     
