@@ -3,12 +3,15 @@
 The current minimization method is just a placeholder. Implementing the full Hopcroft's algorithm would make the program complete.
 This would reduce the DFA to its minimal form with the fewest possible states.
 
-2. Add Support for Epsilon Transitions
-
-The current implementation doesn't handle epsilon (ε) transitions, which are common in NFAs.
-Adding support would require computing epsilon closures when converting NFA to DFA.
 
 3. Add State Renaming
 
 After conversion or minimization, rename states to a more readable format (q0, q1, etc.).
 This would make the resulting automaton easier to understand.
+
+
+4. Remove asking the user about no of transitions as its a dfa and no of transitions for each state = no of alphabets
+
+5. Dead state:
+    first ask the user about no.of dead states, then input dead states
+    
