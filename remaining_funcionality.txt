@@ -14,4 +14,4 @@ This would make the resulting automaton easier to understand.
 
 4. Dead state:
     first ask the user about no.of dead states, then input dead states
-    
+5. Add a dead state: if the user doesnt provide 
