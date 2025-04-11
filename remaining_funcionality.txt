@@ -12,6 +12,3 @@ This would make the resulting automaton easier to understand.
 
 3. Remove asking the user about no of transitions as its a dfa and no of transitions for each state = no of alphabets
 
-4. Dead state:
-    first ask the user about no.of dead states, then input dead states
-5. Add a dead state: if the user doesnt provide 
