@@ -8,3 +8,7 @@ This would reduce the DFA to its minimal form with the fewest possible states.
 
 After conversion or minimization, rename states to a more readable format (q0, q1, etc.).
 This would make the resulting automaton easier to understand.
+
+3. Dead state logic: dead state transitions should stay in itself
+4. Dead states cant be accepting state.
+5. Divide the functionality into different part for better documentation.
