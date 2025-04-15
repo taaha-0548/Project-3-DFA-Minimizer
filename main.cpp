@@ -85,128 +85,150 @@ public:
         cout << endl;
     }
 
-    // Input accepting states
     void inputAcceptingStates() {
-        int numAccepting;
         cout << "Enter the number of accepting states: ";
-        cin >> numAccepting;
-        
-        cout << "Enter the indices of accepting states (0 to " << numStates - 1 << "): ";
-        for (int i = 0; i < numAccepting; ++i) {
-            int stateIndex;
-            cin >> stateIndex;
-            
-            if (stateIndex >= 0 && stateIndex < numStates) {
-                acceptingStates.insert(states[stateIndex]);
-            } else {
-                cerr << "Invalid state index: " << stateIndex << endl;
-                exit(1);
+        int num;
+        cin >> num;
+    
+        cout << "Enter the indices of accepting states (one per line). Note: A dead state cannot be an accepting state.\n";
+        while (acceptingStates.size() < (unsigned)num) {
+            int idx;
+            cin >> idx;
+            if (idx < 0 || idx >= numStates) {
+                cout << "Invalid state index. Please enter an index from 0 to " << numStates - 1 << ": ";
+                continue;
             }
+            string state = states[idx];
+            if (deadStates.count(state)) {
+                cout << "Error: '" << state << "' is a dead state and cannot be an accepting state. Please enter a different index:\n";
+                continue;
+            }
+            acceptingStates.insert(state);
         }
-        
-        cout << "Accepting states: ";
-        for (const auto& state : acceptingStates) {
-            cout << state << " ";
-        }
-        cout << endl;
     }
-
-    // Input transitions for each state.
-    // For each state and for each symbol, if no transition is provided (user enters -1),
-    // the transition is assigned to the dead state.
-    void inputTransitions() {
-        cout << "Enter transitions for each state:" << endl;
-        cout << "For each state and each symbol, enter a destination state index." << endl;
-        cout << "If no transition exists for a given symbol, enter -1; it will be assigned to a dead state." << endl;
+    
+    
+  // Input transitions for each state.
+// For each non-dead state and for each symbol, ask the user to input the destination state index.
+// If no transition is provided (user enters -1), the transition is assigned to a dead state (or a sink state if none exists).
+// For states that are dead, skip asking for transitions.
+// Input transitions for each state.
+// For each non-dead state and for each symbol, prompt the user for the destination state index.
+// If an invalid index is entered (anything other than -1 or a valid index), display a warning and re-prompt.
+// For each dead state, transitions are automatically set (via DeadStateLogic later).
+void inputTransitions() {
+    cout << "Enter transitions for each state:" << endl;
+    cout << "For each non-dead state and each symbol, enter a destination state index." << endl;
+    cout << "If no transition exists for a given symbol, enter -1; it will be assigned to a dead state." << endl;
+    
+    for (const auto& state : states) {
+        // If the state is already a dead state, skip prompting for transitions.
+        if (deadStates.count(state)) {
+            cout << "Skipping transitions for dead state " << state << " (transitions will loop back to itself)." << endl;
+            continue;
+        }
         
-        for (const auto& state : states) {
-            for (char symbol : alphabet) {
+        for (char symbol : alphabet) {
+            int destIndex;
+            while (true) {
                 cout << "Enter destination state index for state " << state 
                      << " on symbol '" << symbol << "' (if missing, enter -1): ";
-                int destIndex;
                 cin >> destIndex;
                 
-                if (destIndex == -1) {
-                    // assign to dead state if available
-                    if (!deadStates.empty()) {
-                        // choose one dead state (the first one from the set)
-                        string deadState = *deadStates.begin();
-                        cout << "No transition provided. Assigning to dead state: " << deadState << endl;
-                        transitions[state][symbol].clear();
-                        transitions[state][symbol].insert(deadState);
-                    } else {
-                        // if no dead state provided, add sink state automatically
-                        string sinkState = "qd";
-                        cout << "No transition provided and no dead state was entered. Adding sink state '" 
-                             << sinkState << "' and assigning transition to it." << endl;
-                        if(find(states.begin(), states.end(), sinkState) == states.end()){
-                            states.push_back(sinkState);
-                            numStates++; // update number of states
-                        }
-                        transitions[state][symbol].clear();
-                        transitions[state][symbol].insert(sinkState);
-                    }
-                } else {
-                    // validate destIndex:
-                    if (destIndex < 0 || destIndex >= numStates) {
-                        cerr << "Invalid destination state index: " << destIndex << endl;
-                        exit(1);
-                    }
-                    string destState = states[destIndex];
-                    transitions[state][symbol].clear();
-                    transitions[state][symbol].insert(destState);
+                if (cin.fail()) {
+                    cin.clear();
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    cout << "Invalid input. Please enter an integer." << endl;
+                    continue;
                 }
+                
+                if (destIndex == -1)
+                    break; // valid input value; will be handled below.
+                
+                if (destIndex < 0 || destIndex >= numStates) {
+                    cout << "Invalid destination state index: " << destIndex << endl;
+                    cout << "Please enter a valid index between 0 and " << numStates - 1 << ", or enter -1." << endl;
+                    continue;
+                }
+                // Valid index provided.
+                break;
+            }
+            
+            // Now process the provided value.
+            if (destIndex == -1) {
+                // Assign to a dead state if one is available.
+                if (!deadStates.empty()) {
+                    string deadState = *deadStates.begin(); // choose one dead state
+                    cout << "No transition provided. Assigning to dead state: " << deadState << endl;
+                    transitions[state][symbol].clear();
+                    transitions[state][symbol].insert(deadState);
+                } else {
+                    // If no dead state was provided, add a sink state automatically.
+                    string sinkState = "qd";
+                    cout << "No transition provided and no dead state was entered. Adding sink state '" 
+                         << sinkState << "' and assigning transition to it." << endl;
+                    if (find(states.begin(), states.end(), sinkState) == states.end()){
+                        states.push_back(sinkState);
+                        numStates++; // update number of states
+                    }
+                    transitions[state][symbol].clear();
+                    transitions[state][symbol].insert(sinkState);
+                }
+            } else {
+                // destIndex is a valid index. Get the destination state name and assign.
+                string destState = states[destIndex];
+                transitions[state][symbol].clear();
+                transitions[state][symbol].insert(destState);
             }
         }
     }
+}
 
-    // Display transition table
-    void displayTransitionTable() {
-        cout << "\nTransition Table:\n";
-        
-        // Print header
-        cout << setw(10) << "State";
+    void displayTransitionTable(const string& title = "Transition Table") {
+        cout << "\n================== " << title << " ==================\n";
+    
+        // Header
+        cout << left << setw(12) << "State";
         for (char symbol : alphabet) {
-            cout << setw(15) << symbol;
+            cout << left << setw(15) << string("on '") + symbol + "'";
         }
-        cout << setw(15) << "Accepting" << setw(15) << "Dead";
-        cout << endl;
-        
-        // Print rows for each state
+        cout << left << setw(12) << "Accepting" << setw(10) << "Dead";
+        cout << "\n-------------------------------------------------------------\n";
+    
+        // Rows
         for (const auto& state : states) {
-            cout << setw(10) << state;
-            
+            cout << left << setw(12) << state;
+    
             for (char symbol : alphabet) {
-                string destinations = "";
-                
-                if (transitions[state][symbol].size() > 0) {
-                    if (transitions[state][symbol].size() > 1) {
-                        destinations += "{";
-                    }
-                    
+                string destinations;
+                const auto& destSet = transitions[state][symbol];
+    
+                if (destSet.empty()) {
+                    destinations = "-";
+                } else if (destSet.size() == 1) {
+                    destinations = *destSet.begin();
+                } else {
+                    destinations = "{";
                     bool first = true;
-                    for (const auto& dest : transitions[state][symbol]) {
-                        if (!first) {
-                            destinations += ",";
-                        }
+                    for (const auto& dest : destSet) {
+                        if (!first) destinations += ",";
                         destinations += dest;
                         first = false;
                     }
-                    
-                    if (transitions[state][symbol].size() > 1) {
-                        destinations += "}";
-                    }
-                } else {
-                    destinations = "-";
+                    destinations += "}";
                 }
-                
-                cout << setw(15) << destinations;
+    
+                cout << left << setw(15) << destinations;
             }
-            
-            cout << setw(15) << (acceptingStates.find(state) != acceptingStates.end() ? "Yes" : "No");
-            cout << setw(15) << (deadStates.find(state) != deadStates.end() ? "Yes" : "No");
+    
+            cout << left << setw(12) 
+                 << (acceptingStates.count(state) ? "Yes" : "No");
+            cout << left << setw(10) 
+                 << (deadStates.count(state) ? "Yes" : "No");
             cout << endl;
         }
+    
+        cout << "=============================================================\n";
     }
 
     // Check if the automaton is a DFA.
@@ -251,16 +273,152 @@ public:
             cout << "Added sink state '" << sinkState << "' for undefined transitions." << endl;
         }
     }
+    void DeadStateLogic() {
+        // Ensure dead states are not marked as accepting:
+        for (const auto& deadState : deadStates) {
+            if (acceptingStates.count(deadState)) {
+                cout << "Removing dead state '" << deadState << "' from accepting states.\n";
+                acceptingStates.erase(deadState);
+            }
+        }
+    
+        // For every dead state, enforce self-loop transitions on all symbols.
+        for (const auto& deadState : deadStates) {
+            for (char symbol : alphabet) {
+                transitions[deadState][symbol].clear();
+                transitions[deadState][symbol].insert(deadState);
+            }
+        }
+        cout << "DeadStateLogic applied: All dead state transitions now loop back to themselves.\n";
+    }
+    void removeUnreachableStates() {
+    set<string> reachable;
+    queue<string> q;
+    q.push(startState);
+    reachable.insert(startState);
+
+    while (!q.empty()) {
+        string curr = q.front(); q.pop();
+        for (char symbol : alphabet) {
+            for (const auto& next : transitions[curr][symbol]) {
+                if (reachable.count(next) == 0) {
+                    reachable.insert(next);
+                    q.push(next);
+                }
+            }
+        }
+    }
+
+    // Now filter all sets/maps to keep only reachable states
+    vector<string> newStates;
+    for (const auto& s : states) {
+        if (reachable.count(s)) {
+            newStates.push_back(s);
+        }
+    }
+    states = newStates;
+
+    set<string> newAccepting, newDead;
+    for (const auto& s : acceptingStates) {
+        if (reachable.count(s)) newAccepting.insert(s);
+    }
+    for (const auto& s : deadStates) {
+        if (reachable.count(s)) newDead.insert(s);
+    }
+
+    acceptingStates = newAccepting;
+    deadStates = newDead;
+
+    // Prune transitions to keep only reachable state transitions
+    map<string, map<char, set<string>>> newTransitions;
+    for (const auto& [state, transMap] : transitions) {
+        if (!reachable.count(state)) continue;
+        for (const auto& [symbol, dests] : transMap) {
+            for (const auto& dest : dests) {
+                if (reachable.count(dest)) {
+                    newTransitions[state][symbol].insert(dest);
+                }
+            }
+        }
+    }
+
+    transitions = newTransitions;
+
+    cout << "Removed unreachable states. Remaining states: ";
+    for (const auto& s : states) cout << s << " ";
+    cout << endl;
+}
+void removeUnreachableStates() {
+    set<string> reachable;
+    queue<string> q;
+    q.push(startState);
+    reachable.insert(startState);
+
+    while (!q.empty()) {
+        string curr = q.front(); q.pop();
+        for (char symbol : alphabet) {
+            for (const auto& next : transitions[curr][symbol]) {
+                if (reachable.count(next) == 0) {
+                    reachable.insert(next);
+                    q.push(next);
+                }
+            }
+        }
+    }
+
+    // Now filter all sets/maps to keep only reachable states
+    vector<string> newStates;
+    for (const auto& s : states) {
+        if (reachable.count(s)) {
+            newStates.push_back(s);
+        }
+    }
+    states = newStates;
+
+    set<string> newAccepting, newDead;
+    for (const auto& s : acceptingStates) {
+        if (reachable.count(s)) newAccepting.insert(s);
+    }
+    for (const auto& s : deadStates) {
+        if (reachable.count(s)) newDead.insert(s);
+    }
+
+    acceptingStates = newAccepting;
+    deadStates = newDead;
+
+    // Prune transitions to keep only reachable state transitions
+    map<string, map<char, set<string>>> newTransitions;
+    for (const auto& [state, transMap] : transitions) {
+        if (!reachable.count(state)) continue;
+        for (const auto& [symbol, dests] : transMap) {
+            for (const auto& dest : dests) {
+                if (reachable.count(dest)) {
+                    newTransitions[state][symbol].insert(dest);
+                }
+            }
+        }
+    }
+
+    transitions = newTransitions;
+
+    cout << "Removed unreachable states. Remaining states: ";
+    for (const auto& s : states) cout << s << " ";
+    cout << endl;
+}
+
 
     // Minimize DFA using Hopcroft's algorithm.
     // The algorithm partitions states into equivalence classes and then
     // renames the resulting classes to a readable format (q0, q1, etc.).
     Automaton minimizeDFA() {
-        // Ensure the DFA is complete
+        // Ensure the DFA is complete (every state has a transition for each symbol)
         completeDFA();
         cout << "\nMinimizing DFA using Hopcroft's algorithm...\n";
-
-        // Initial partition: P = { final states, non-final states }
+    
+        // -------------------------------
+        // 1. INITIAL PARTITIONING
+        // -------------------------------
+        // Create two groups: one for accepting (final) states, one for non-accepting states.
         set<string> finalStates = acceptingStates; 
         set<string> nonFinalStates;
         for (const auto& state : states) {
@@ -268,27 +426,33 @@ public:
                 nonFinalStates.insert(state);
         }
         
-        vector< set<string> > P; // The partition of states
+        // Partition P: initially split into accepting and non-accepting blocks.
+        vector< set<string> > P;
         if (!finalStates.empty())
             P.push_back(finalStates);
         if (!nonFinalStates.empty())
             P.push_back(nonFinalStates);
         
-        // Initialize worklist W with the smaller subset
+        // Worklist W: initialize with the smaller block (if both are non-empty)
         vector< set<string> > W;
-        if (!finalStates.empty() && (finalStates.size() <= nonFinalStates.size()))
+        if (!finalStates.empty() && finalStates.size() <= nonFinalStates.size())
             W.push_back(finalStates);
         else if (!nonFinalStates.empty())
             W.push_back(nonFinalStates);
         
-        // Main loop of Hopcroft's algorithm
+        // -------------------------------
+        // 2. REFINING THE PARTITION (Hopcroft's loop)
+        // -------------------------------
         while (!W.empty()) {
+            // Remove a block A from W.
             set<string> A = W.back();
             W.pop_back();
+            // For each symbol in the alphabet...
             for (char symbol : alphabet) {
                 // Compute X = { s in Q | delta(s, symbol) is in A }
                 set<string> X;
                 for (const auto & s : states) {
+                    // For a DFA there is only one destination for each state-symbol pair.
                     if (!transitions[s][symbol].empty()) {
                         string dest = *(transitions[s][symbol].begin());
                         if (A.find(dest) != A.end()) {
@@ -296,7 +460,7 @@ public:
                         }
                     }
                 }
-                // For each block Y in partition P, split Y if necessary
+                // Now, split each block Y in the partition P according to X.
                 vector< set<string> > newP;
                 for (auto & Y : P) {
                     set<string> intersection, difference;
@@ -306,9 +470,12 @@ public:
                         else
                             difference.insert(s);
                     }
+                    // If Y is split into two non-empty blocks, replace Y in P.
                     if (!intersection.empty() && !difference.empty()) {
                         newP.push_back(intersection);
                         newP.push_back(difference);
+                        // Update the worklist W: if Y already appears, replace it by both parts;
+                        // otherwise, add the smaller of the two.
                         bool found = false;
                         for (auto it = W.begin(); it != W.end(); ++it) {
                             if (*it == Y) {
@@ -329,31 +496,37 @@ public:
                         newP.push_back(Y);
                     }
                 }
+                // Replace partition with the refined partition.
                 P = newP;
             }
         }
         
-        // Map each original state to its minimized new state (using a readable naming scheme)
+        // -------------------------------
+        // 3. BUILDING THE MINIMIZED DFA
+        // -------------------------------
+        // Map each original state to its new minimized state name (using uppercase 'Q').
         map<string, string> stateToNewState;
-        vector<set<string>> minimizedPartition = P;
+        vector<set<string>> minimizedPartition = P; // easier to refer to
         vector<string> newStateNames;
-        for (int i = 0; i < minimizedPartition.size(); i++) {
-            string newName = "q" + to_string(i);
+        
+        for (int i = 0; i < (int)minimizedPartition.size(); i++) {
+            // Create a new state name for the i-th partition block.
+            string newName = "Q" + to_string(i);
             newStateNames.push_back(newName);
             for (const auto & s : minimizedPartition[i]) {
                 stateToNewState[s] = newName;
             }
         }
         
-        // Build the minimized DFA with renamed states
+        // Build the new minimized automaton.
         Automaton minimized;
         minimized.alphabet = this->alphabet;
         minimized.states = newStateNames;
         minimized.numStates = minimized.states.size();
         minimized.startState = stateToNewState[this->startState];
         
-        // Mark new accepting states if any state in the corresponding block is accepting
-        for (int i = 0; i < minimizedPartition.size(); i++) {
+        // Mark new accepting states: if any state in a block was accepting, mark the new state as accepting.
+        for (int i = 0; i < (int)minimizedPartition.size(); i++) {
             bool isAccepting = false;
             for (const auto & s : minimizedPartition[i]) {
                 if (acceptingStates.find(s) != acceptingStates.end()) {
@@ -362,12 +535,12 @@ public:
                 }
             }
             if (isAccepting) {
-                minimized.acceptingStates.insert("q" + to_string(i));
+                minimized.acceptingStates.insert("Q" + to_string(i));
             }
         }
         
-        // Mark new dead states if all states in the block are dead states
-        for (int i = 0; i < minimizedPartition.size(); i++) {
+        // Mark new dead states if every state in a block is a dead state.
+        for (int i = 0; i < (int)minimizedPartition.size(); i++) {
             bool allDead = true;
             for (const auto & s : minimizedPartition[i]) {
                 if (deadStates.find(s) == deadStates.end()) {
@@ -376,17 +549,19 @@ public:
                 }
             }
             if (allDead) {
-                minimized.deadStates.insert("q" + to_string(i));
+                minimized.deadStates.insert("Q" + to_string(i));
             }
         }
         
         // Construct transitions for the minimized DFA.
-        // For each new state, pick a representative from the corresponding block.
-        for (int i = 0; i < minimizedPartition.size(); i++) {
-            string newStateName = "q" + to_string(i);
+        // For each new state (each partition block), pick a representative from the block.
+        for (int i = 0; i < (int)minimizedPartition.size(); i++) {
+            string newStateName = "Q" + to_string(i);
             string representative = *(minimizedPartition[i].begin());
             for (char symbol : alphabet) {
+                // Get the single destination from the representative.
                 string dest = *(transitions[representative][symbol].begin());
+                // Map it to the new state name.
                 string newDest = stateToNewState[dest];
                 minimized.transitions[newStateName][symbol].insert(newDest);
             }
@@ -394,7 +569,7 @@ public:
         
         return minimized;
     }
-
+    
     // Utility: Convert a set of states to a state name (for debugging or power set construction)
     string setToStateName(const set<string>& stateSet) {
         if (stateSet.empty()) return "{}";
@@ -422,13 +597,15 @@ int main() {
     automaton.inputDeadStates();
     automaton.inputAcceptingStates();
     automaton.inputTransitions();
-    
+    automaton.DeadStateLogic();
     // Display the original transition table
     cout << "\nOriginal Automaton:";
     automaton.displayTransitionTable();
     
     cout << "\nInput is assumed to be a DFA. Proceeding with minimization...\n";
-    
+    automaton.removeUnreachableStates();
+    cout<<"After removing unreachable states:\n";
+    automaton.displayTransitionTable();
     // Minimize the DFA using Hopcroft's algorithm
     Automaton minimizedDFA = automaton.minimizeDFA();
     
