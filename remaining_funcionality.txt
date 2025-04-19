@@ -1,2 +1,0 @@
-
-5. Divide the functionality into different part for better documentation.
