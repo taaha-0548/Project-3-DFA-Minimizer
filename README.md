@@ -77,7 +77,7 @@ make
 ### 2. **Run the Program**
 Execute the program using:
 ```bash
-bin\dfa_minimization.exe
+make run
 ```
 
 ### 3. **Clean the Build**
