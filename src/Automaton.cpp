@@ -170,56 +170,66 @@ void Automaton::inputTransitions() {
 }
 
 void Automaton::displayTransitionTable(const string& title) {
+    // Constants for column widths
+    const int ARROW_WIDTH = 4;
+    const int STATE_WIDTH = 10;
+    const int TRANS_WIDTH = 10;
+
+    // Title and header
     cout << "\n" << title << "\n";
     cout << "================ Transition Table ================\n";
     
     // Column headers
-    cout << left << setw(4) << " " << setw(10) << "State";
+    cout << left 
+         << setw(ARROW_WIDTH) << " "
+         << setw(STATE_WIDTH) << "State";
+    
+    // Alphabet symbols as column headers
     for (char symbol : alphabet) {
-        cout << "on '" << symbol << "'  ";
+        cout << left << setw(TRANS_WIDTH) << symbol;
     }
-    cout << setw(10) << "Accepting" << setw(6) << "Dead" << endl;
-    cout << "--------------------------------------------------\n";
+    cout << endl;
 
-    // Sort states to ensure Q0, Q1, Q2... order for minimized DFA
+    // Separator line
+    cout << string(ARROW_WIDTH + STATE_WIDTH + 
+                  alphabet.size() * TRANS_WIDTH, '-') << endl;
+
+    // Sort states for minimized DFA
     vector<string> sortedStates = states;
     if (!sortedStates.empty() && sortedStates[0][0] == 'Q') {
         sort(sortedStates.begin(), sortedStates.end(), 
             [](const string& a, const string& b) {
-                // Extract numbers from Qn format
-                int numA = stoi(a.substr(1));
-                int numB = stoi(b.substr(1));
-                return numA < numB;
+                return stoi(a.substr(1)) < stoi(b.substr(1));
             });
     }
 
     // Display transitions
     for (const auto& state : sortedStates) {
-        // Mark start state with ->
-        cout << (state == startState ? "->" : "  ");
-        cout << left << setw(10) << state;
+        // Start state marker
+        cout << left << setw(ARROW_WIDTH) << (state == startState ? "->" : "  ");
         
-        // Display transitions for each symbol
+        // State name with accepting state marker (+)
+        string stateName = state;
+        if (acceptingStates.count(state)) {
+            stateName += "+";
+        }
+        cout << left << setw(STATE_WIDTH) << stateName;
+        
+        // Transitions
         for (char symbol : alphabet) {
             if (transitions.count(state) && transitions.at(state).count(symbol)) {
                 const auto& dests = transitions.at(state).at(symbol);
-                if (dests.size() == 1)
-                    cout << left << setw(8) << *dests.begin();
-                else
-                    cout << left << setw(8) << setToStateName(dests);
+                string destStr = dests.size() == 1 ? *dests.begin() : setToStateName(dests);
+                cout << left << setw(TRANS_WIDTH) << destStr;
             } else {
-                cout << left << setw(8) << "-";
+                cout << left << setw(TRANS_WIDTH) << "-";
             }
         }
-        
-        // Display accepting and dead state status
-        cout << setw(10) << (acceptingStates.count(state) ? "Yes" : "No");
-        cout << setw(6) << (deadStates.count(state) ? "Yes" : "No");
         cout << endl;
     }
-    cout << "==================================================\n";
+    
+    cout << "=================================================\n";
 }
-
 
 // Check if the automaton is a DFA.
 bool Automaton::checkIfDFA() {
