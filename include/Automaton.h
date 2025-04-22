@@ -22,7 +22,7 @@ private:
     set<string> deadStates;   // Stores states designated as dead/sink states
     map<string, map<char, set<string>>> transitions;
     bool isDFA;
-    
+   
     // Utility function for power set construction/debugging
     string setToStateName(const set<string>& stateSet);
 
@@ -42,7 +42,7 @@ public:
     void completeDFA();
     bool checkIfDFA();
     Automaton minimizeDFA();
-    
+    bool hasUnreachableStates();
     // Display methods
     void displayTransitionTable(const string& title = "Transition Table");
 };

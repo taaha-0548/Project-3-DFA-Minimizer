@@ -7,35 +7,51 @@ Automaton::Automaton() : numStates(0), startState("q0"), isDFA(true) {}
 
 // Input alphabet from user
 void Automaton::inputAlphabet() {
-    cout << "Enter the allowed symbols (language) without spaces: ";
+    cout << "\nStep 1: Define Alphabet\n";
+    cout << "Enter alphabet symbols (e.g., ab for alphabet {a,b}): ";
     string symbols;
     cin >> symbols;
 
+    alphabet.clear();
     for (char c : symbols) {
         alphabet.insert(c);
     }
 
-    cout << "Alphabet: ";
-    for (char c : alphabet) {
-        cout << c << " ";
+    cout << "Alphabet: {";
+    for (auto it = alphabet.begin(); it != alphabet.end(); ++it) {
+        cout << *it;
+        if (next(it) != alphabet.end()) cout << ",";
     }
-    cout << endl;
+    cout << "}\n";
 }
 
 // Generate states based on user input
 void Automaton::generateStates() {
-    cout << "Enter the number of states: ";
-    cin >> numStates;
+    cout << "\nStep 2: Define States\n";
+    while (true) {
+        cout << "Enter number of states (minimum 1): ";
+        if (!(cin >> numStates) || numStates < 1) {
+            cout << "Invalid input. Please enter a positive number.\n";
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        break;
+    }
+    
 
+    states.clear();
     for (int i = 0; i < numStates; ++i) {
         states.push_back("q" + to_string(i));
     }
 
-    cout << "Generated states: ";
-    for (const auto& state : states) {
-        cout << state << " ";
+    cout << "States: {";
+    for (size_t i = 0; i < states.size(); ++i) {
+        cout << states[i];
+        if (i < states.size() - 1) cout << ",";
     }
-    cout << endl;
+    cout << "}\n";
+    cout << "Initial state is: q0\n";
 }
 
 // Input dead states information
@@ -68,83 +84,88 @@ void Automaton::inputDeadStates() {
 }
 
 void Automaton::inputAcceptingStates() {
-    cout << "Enter the number of accepting states: ";
+    cout << "\nStep 3: Define Accepting States\n";
     int num;
-    cin >> num;
+    while (true) {
+        cout << "Enter number of accepting states (0-" << numStates << "): ";
+        if (!(cin >> num) || num < 0 || num > numStates) {
+            cout << "Invalid input. Please enter a number between 0 and " << numStates << ".\n";
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        break;
+    }
 
-    cout << "Enter the indices of accepting states (one per line). Note: A dead state cannot be an accepting state.\n";
+    acceptingStates.clear();
+    cout << "Enter state indices (0-" << numStates-1 << ") one per line:\n";
     while (acceptingStates.size() < (unsigned)num) {
         int idx;
-        cin >> idx;
+        if (!(cin >> idx)) {
+            cout << "Invalid input. Please enter a number.\n";
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
         if (idx < 0 || idx >= numStates) {
-            cout << "Invalid state index. Please enter an index from 0 to " << numStates - 1 << ": ";
+            cout << "Invalid index. Please enter a number between 0 and " << numStates-1 << ": ";
             continue;
         }
-        string state = states[idx];
-        if (deadStates.count(state)) {
-            cout << "Error: '" << state << "' is a dead state and cannot be an accepting state. Please enter a different index:\n";
+        if (acceptingStates.find(states[idx]) != acceptingStates.end()) {
+            cout << "State " << states[idx] << " is already an accepting state. Enter a different state.\n";
             continue;
         }
-        acceptingStates.insert(state);
+        acceptingStates.insert(states[idx]);
     }
+
+    cout << "Accepting states: {";
+    for (auto it = acceptingStates.begin(); it != acceptingStates.end(); ++it) {
+        cout << *it;
+        if (next(it) != acceptingStates.end()) cout << ",";
+    }
+    cout << "}\n";
 }
 
 void Automaton::inputTransitions() {
-    cout << "Enter transitions for each state:" << endl;
-    cout << "For each non-dead state and each symbol, enter a destination state index." << endl;
-    cout << "If no transition exists for a given symbol, enter -1; it will be assigned to a dead state." << endl;
+    cout << "\nStep 4: Define Transitions\n";
+    cout << "For each state and symbol, enter the destination state index.\n";
+    cout << "Enter -1 for transitions to a dead state.\n\n";
 
     for (const auto& state : states) {
-        if (deadStates.count(state)) {
-            cout << "Skipping transitions for dead state " << state << " (transitions will loop back to itself)." << endl;
-            continue;
-        }
-
+        cout << "Transitions from state " << state << ":\n";
         for (char symbol : alphabet) {
-            int destIndex;
             while (true) {
-                cout << "Enter destination state index for state " << state
-                     << " on symbol '" << symbol << "' (if missing, enter -1): ";
-                cin >> destIndex;
-
-                if (cin.fail()) {
+                cout << "  On symbol '" << symbol << "' goes to (enter 0-" << numStates-1 << " or -1): ";
+                int destIndex;
+                if (!(cin >> destIndex)) {
+                    cout << "Invalid input. Please enter a number.\n";
                     cin.clear();
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    cout << "Invalid input. Please enter an integer." << endl;
+                    continue;
+                }
+                if (destIndex != -1 && (destIndex < 0 || destIndex >= numStates)) {
+                    cout << "Invalid index. Please enter -1 or a number between 0 and " << numStates-1 << ".\n";
                     continue;
                 }
 
-                if (destIndex == -1)
-                    break;
-
-                if (destIndex < 0 || destIndex >= numStates) {
-                    cout << "Invalid destination state index: " << destIndex << endl;
-                    cout << "Please enter a valid index between 0 and " << numStates - 1 << ", or enter -1." << endl;
-                    continue;
-                }
-                break;
-            }
-
-            if (destIndex == -1) {
-                if (!deadStates.empty()) {
-                    string deadState = *deadStates.begin();
-                    transitions[state][symbol].clear();
-                    transitions[state][symbol].insert(deadState);
-                } else {
-                    string sinkState = "qd";
-                    if (find(states.begin(), states.end(), sinkState) == states.end()) {
-                        states.push_back(sinkState);
+                if (destIndex == -1) {
+                    string deadState = "qd";
+                    if (find(states.begin(), states.end(), deadState) == states.end()) {
+                        states.push_back(deadState);
                         numStates++;
+                        deadStates.insert(deadState);
                     }
                     transitions[state][symbol].clear();
-                    transitions[state][symbol].insert(sinkState);
+                    transitions[state][symbol].insert(deadState);
+                    break;
+                } else {
+                    transitions[state][symbol].clear();
+                    transitions[state][symbol].insert(states[destIndex]);
+                    break;
                 }
-            } else {
-                string destState = states[destIndex];
-                transitions[state][symbol].clear();
-                transitions[state][symbol].insert(destState);
             }
         }
+        cout << endl;
     }
 }
 
@@ -324,6 +345,29 @@ void Automaton::removeUnreachableStates() {
     cout << "Removed unreachable states. Remaining states: ";
     for (const auto& s : states) cout << s << " ";
     cout << endl;
+}
+
+bool Automaton::hasUnreachableStates() {
+    set<string> reachable;
+    queue<string> q;
+    q.push(startState);
+    reachable.insert(startState);
+
+    // BFS to find all reachable states
+    while (!q.empty()) {
+        string curr = q.front();
+        q.pop();
+        for (char symbol : alphabet) {
+            for (const auto& next : transitions[curr][symbol]) {
+                if (reachable.count(next) == 0) {
+                    reachable.insert(next);
+                    q.push(next);
+                }
+            }
+        }
+    }
+
+    return reachable.size() != states.size();
 }
 
 // Minimize DFA using Hopcroft's algorithm.
