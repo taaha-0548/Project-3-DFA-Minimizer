@@ -149,51 +149,56 @@ void Automaton::inputTransitions() {
 }
 
 void Automaton::displayTransitionTable(const string& title) {
-    cout << "\n================== " << title << " ==================\n";
-
-    // Header
-    cout << left << setw(12) << "State";
+    cout << "\n" << title << "\n";
+    cout << "================ Transition Table ================\n";
+    
+    // Column headers
+    cout << left << setw(4) << " " << setw(10) << "State";
     for (char symbol : alphabet) {
-        cout << left << setw(15) << string("on '") + symbol + "'";
+        cout << "on '" << symbol << "'  ";
     }
-    cout << left << setw(12) << "Accepting" << setw(10) << "Dead";
-    cout << "\n-------------------------------------------------------------\n";
+    cout << setw(10) << "Accepting" << setw(6) << "Dead" << endl;
+    cout << "--------------------------------------------------\n";
 
-    // Rows
-    for (const auto& state : states) {
-        cout << left << setw(12) << state;
+    // Sort states to ensure Q0, Q1, Q2... order for minimized DFA
+    vector<string> sortedStates = states;
+    if (!sortedStates.empty() && sortedStates[0][0] == 'Q') {
+        sort(sortedStates.begin(), sortedStates.end(), 
+            [](const string& a, const string& b) {
+                // Extract numbers from Qn format
+                int numA = stoi(a.substr(1));
+                int numB = stoi(b.substr(1));
+                return numA < numB;
+            });
+    }
 
+    // Display transitions
+    for (const auto& state : sortedStates) {
+        // Mark start state with ->
+        cout << (state == startState ? "->" : "  ");
+        cout << left << setw(10) << state;
+        
+        // Display transitions for each symbol
         for (char symbol : alphabet) {
-            string destinations;
-            const auto& destSet = transitions[state][symbol];
-
-            if (destSet.empty()) {
-                destinations = "-";
-            } else if (destSet.size() == 1) {
-                destinations = *destSet.begin();
+            if (transitions.count(state) && transitions.at(state).count(symbol)) {
+                const auto& dests = transitions.at(state).at(symbol);
+                if (dests.size() == 1)
+                    cout << left << setw(8) << *dests.begin();
+                else
+                    cout << left << setw(8) << setToStateName(dests);
             } else {
-                destinations = "{";
-                bool first = true;
-                for (const auto& dest : destSet) {
-                    if (!first) destinations += ",";
-                    destinations += dest;
-                    first = false;
-                }
-                destinations += "}";
+                cout << left << setw(8) << "-";
             }
-
-            cout << left << setw(15) << destinations;
         }
-
-        cout << left << setw(12) 
-             << (acceptingStates.count(state) ? "Yes" : "No");
-        cout << left << setw(10) 
-             << (deadStates.count(state) ? "Yes" : "No");
+        
+        // Display accepting and dead state status
+        cout << setw(10) << (acceptingStates.count(state) ? "Yes" : "No");
+        cout << setw(6) << (deadStates.count(state) ? "Yes" : "No");
         cout << endl;
     }
-
-    cout << "=============================================================\n";
+    cout << "==================================================\n";
 }
+
 
 // Check if the automaton is a DFA.
 bool Automaton::checkIfDFA() {
@@ -330,7 +335,6 @@ Automaton Automaton::minimizeDFA() {
     // -------------------------------
     // 1. INITIAL PARTITIONING
     // -------------------------------
-    // Create two groups: one for accepting (final) states, one for non-accepting states.
     set<string> finalStates = acceptingStates; 
     set<string> nonFinalStates;
     for (const auto& state : states) {
@@ -338,15 +342,13 @@ Automaton Automaton::minimizeDFA() {
             nonFinalStates.insert(state);
     }
     
-    // Partition P: initially split into accepting and non-accepting blocks.
-    vector< set<string> > P;
+    vector<set<string>> P;
     if (!finalStates.empty())
         P.push_back(finalStates);
     if (!nonFinalStates.empty())
         P.push_back(nonFinalStates);
     
-    // Worklist W: initialize with the smaller block (if both are non-empty)
-    vector< set<string> > W;
+    vector<set<string>> W;
     if (!finalStates.empty() && finalStates.size() <= nonFinalStates.size())
         W.push_back(finalStates);
     else if (!nonFinalStates.empty())
@@ -356,15 +358,11 @@ Automaton Automaton::minimizeDFA() {
     // 2. REFINING THE PARTITION (Hopcroft's loop)
     // -------------------------------
     while (!W.empty()) {
-        // Remove a block A from W.
         set<string> A = W.back();
         W.pop_back();
-        // For each symbol in the alphabet...
         for (char symbol : alphabet) {
-            // Compute X = { s in Q | delta(s, symbol) is in A }
             set<string> X;
-            for (const auto & s : states) {
-                // For a DFA there is only one destination for each state-symbol pair.
+            for (const auto& s : states) {
                 if (!transitions[s][symbol].empty()) {
                     string dest = *(transitions[s][symbol].begin());
                     if (A.find(dest) != A.end()) {
@@ -372,33 +370,24 @@ Automaton Automaton::minimizeDFA() {
                     }
                 }
             }
-            // Now, split each block Y in the partition P according to X.
-            vector< set<string> > newP;
-            for (auto & Y : P) {
+            vector<set<string>> newP;
+            for (auto& Y : P) {
                 set<string> intersection, difference;
-                for (const auto & s : Y) {
+                for (const auto& s : Y) {
                     if (X.find(s) != X.end())
                         intersection.insert(s);
                     else
                         difference.insert(s);
                 }
-                // If Y is split into two non-empty blocks, replace Y in P.
                 if (!intersection.empty() && !difference.empty()) {
                     newP.push_back(intersection);
                     newP.push_back(difference);
-                    // Update the worklist W: if Y already appears, replace it by both parts;
-                    // otherwise, add the smaller of the two.
-                    bool found = false;
-                    for (auto it = W.begin(); it != W.end(); ++it) {
-                        if (*it == Y) {
-                            W.erase(it);
-                            W.push_back(intersection);
-                            W.push_back(difference);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
+                    auto it = find(W.begin(), W.end(), Y);
+                    if (it != W.end()) {
+                        W.erase(it);
+                        W.push_back(intersection);
+                        W.push_back(difference);
+                    } else {
                         if (intersection.size() <= difference.size())
                             W.push_back(intersection);
                         else
@@ -408,77 +397,73 @@ Automaton Automaton::minimizeDFA() {
                     newP.push_back(Y);
                 }
             }
-            // Replace partition with the refined partition.
             P = newP;
         }
     }
-    
+
     // -------------------------------
-    // 3. BUILDING THE MINIMIZED DFA
+    // 3. CHECK IF ALREADY MINIMIZED
+    if (P.size() == states.size()) {
+        cout << "The DFA is already minimized.\n";
+        return *this;
+    }
+
     // -------------------------------
-    // Map each original state to its new minimized state name (using uppercase 'Q').
+    // 4. BUILDING THE MINIMIZED DFA
     map<string, string> stateToNewState;
-    vector<set<string>> minimizedPartition = P; // easier to refer to
-    vector<string> newStateNames;
-    
-    for (int i = 0; i < (int)minimizedPartition.size(); i++) {
-        // Create a new state name for the i-th partition block.
-        string newName = "Q" + to_string(i);
-        newStateNames.push_back(newName);
-        for (const auto & s : minimizedPartition[i]) {
-            stateToNewState[s] = newName;
+    vector<string> newStateNames(P.size());
+    int startIdx = -1;
+
+    // Find the partition containing the original start state
+    for (size_t i = 0; i < P.size(); ++i) {
+        if (P[i].count(startState)) {
+            startIdx = i;
+            break;
         }
     }
-    
-    // Build the new minimized automaton.
+
+    // Assign Q0 to the start state partition
+    newStateNames[startIdx] = "Q0";
+    for (const auto& s : P[startIdx]) {
+        stateToNewState[s] = "Q0";
+    }
+
+    // Assign Q1, Q2, ... to the other partitions
+    int qNum = 1;
+    for (size_t i = 0; i < P.size(); ++i) {
+        if ((int)i == startIdx) continue;
+        string name = "Q" + to_string(qNum++);
+        newStateNames[i] = name;
+        for (const auto& s : P[i]) {
+            stateToNewState[s] = name;
+        }
+    }
+
     Automaton minimized;
     minimized.alphabet = this->alphabet;
-    minimized.states = newStateNames;
+    minimized.states.clear();
+    for (const auto& name : newStateNames) minimized.states.push_back(name);
     minimized.numStates = minimized.states.size();
-    minimized.startState = stateToNewState[this->startState];
-    
-    // Mark new accepting states: if any state in a block was accepting, mark the new state as accepting.
-    for (int i = 0; i < (int)minimizedPartition.size(); i++) {
-        bool isAccepting = false;
-        for (const auto & s : minimizedPartition[i]) {
-            if (acceptingStates.find(s) != acceptingStates.end()) {
-                isAccepting = true;
-                break;
-            }
+    minimized.startState = "Q0";
+
+    for (size_t i = 0; i < P.size(); ++i) {
+        string newStateName = newStateNames[i];
+        bool isAccepting = false, allDead = true;
+        string representative = *(P[i].begin());
+        for (const auto& s : P[i]) {
+            if (acceptingStates.count(s)) isAccepting = true;
+            if (!deadStates.count(s)) allDead = false;
         }
-        if (isAccepting) {
-            minimized.acceptingStates.insert("Q" + to_string(i));
-        }
-    }
-    
-    // Mark new dead states if every state in a block is a dead state.
-    for (int i = 0; i < (int)minimizedPartition.size(); i++) {
-        bool allDead = true;
-        for (const auto & s : minimizedPartition[i]) {
-            if (deadStates.find(s) == deadStates.end()) {
-                allDead = false;
-                break;
-            }
-        }
-        if (allDead) {
-            minimized.deadStates.insert("Q" + to_string(i));
-        }
-    }
-    
-    // Construct transitions for the minimized DFA.
-    // For each new state (each partition block), pick a representative from the block.
-    for (int i = 0; i < (int)minimizedPartition.size(); i++) {
-        string newStateName = "Q" + to_string(i);
-        string representative = *(minimizedPartition[i].begin());
+        if (isAccepting) minimized.acceptingStates.insert(newStateName);
+        if (allDead) minimized.deadStates.insert(newStateName);
+
         for (char symbol : alphabet) {
-            // Get the single destination from the representative.
             string dest = *(transitions[representative][symbol].begin());
-            // Map it to the new state name.
             string newDest = stateToNewState[dest];
             minimized.transitions[newStateName][symbol].insert(newDest);
         }
     }
-    
+
     return minimized;
 }
 
